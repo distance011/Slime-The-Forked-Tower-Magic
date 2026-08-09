@@ -91,7 +91,7 @@ function doQuery() {
     var jobs = (r.p.main || '/') + '/' + (r.p.sub || '/');
     div.innerHTML =
       '<div class="car">' + esc(r.roster.time) + ' · ' + esc(r.roster.label || '') + '</div>' +
-      '<div class="meta">' + esc(r.roster.label || '') + ' · 车头 ' + esc(r.roster.leader) + '</div>' +
+      '<div class="meta">车头 ' + esc(r.roster.leader) + '</div>' +
       '<div class="info">' +
         '<span><b>玩家:</b> ' + esc(r.p.name) + '</span>' +
         '<span><b>QQ:</b> ' + esc(r.p.qq) + '</span>' +
@@ -110,12 +110,11 @@ function timeKey(s) {
 function isUpcoming(s, now) {
   var k = timeKey(s);
   if (k[0] === 0) return true;
-  var nk = [now.getMonth() + 1, now.getDate(), now.getHours(), now.getMinutes()];
-  for (var i = 0; i < 4; i++) {
-    if (k[i] < nk[i]) return false;
-    if (k[i] > nk[i]) return true;
-  }
-  return true;
+  // 按日期过滤: 只要车表日期 >= 今天, 无论时间是否已过都显示
+  var nk = [now.getMonth() + 1, now.getDate()];
+  if (k[0] < nk[0]) return false;
+  if (k[0] > nk[0]) return true;
+  return k[1] >= nk[1];
 }
 function esc(s) {
   return (s == null ? '' : String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
