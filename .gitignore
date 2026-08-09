@@ -1,0 +1,9 @@
+# 私密配置(含登录Cookie)
+config.py
+
+# 运行时数据(含玩家QQ等隐私信息)
+players_db.json
+
+# Python
+__pycache__/
+*.pyc
