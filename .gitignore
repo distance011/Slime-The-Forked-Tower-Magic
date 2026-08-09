@@ -1,8 +1,12 @@
-# 私密配置(含登录Cookie)
+# 私密配置(含登录Cookie)与本地数据
 config.py
-
-# 运行时数据(含玩家QQ等隐私信息)
 players_db.json
+
+# 本地工具脚本(含协议逆向代码, 不公开)
+query_renshu.py
+web_query.py
+generate_data.py
+config.example.py
 
 # Python
 __pycache__/
