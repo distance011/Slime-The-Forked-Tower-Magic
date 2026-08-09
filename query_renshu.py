@@ -14,19 +14,107 @@ import re
 import sys
 import time
 import os
-import importlib.util
+import base64
+import gzip
+import zlib
 import urllib.request
 import urllib.parse
 
 sys.stdout.reconfigure(encoding="utf-8")
 
-# 复用 update_renshu.py 的抓取能力
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_FILE = os.path.join(SCRIPT_DIR, "players_db.json")
 
-spec = importlib.util.spec_from_file_location("ur", os.path.join(SCRIPT_DIR, "update_renshu.py"))
-ur = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(ur)
+# 配置(从 config.py 导入)
+try:
+    from config import UID, UID_KEY, TOK, COOKIE, DOC_URL, UPID, PADID, DOCID, SUBID, TABLEID
+except ImportError:
+    print("缺少 config.py！请复制 config.example.py 为 config.py 并填写配置。")
+    raise
+
+HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+
+
+# ---------- 读取发车表 ----------
+def opendoc():
+    url = (f"https://docs.qq.com/dop-api/opendoc?tab={SUBID}&viewId=v2JKhc&u=&noEscape=1"
+           f"&enableSmartsheetSplit=1&supportOptimizedVer=4&chunkCellSize=15000"
+           f"&enableChunkRank=1&startrow=0&endrow=100"
+           f"&id={UPID}&normal=1&outformat=1&wb=1&nowb=0"
+           f"&callback=clientVarsCallback&xsrf={TOK}&t=7696f6bbbb5620acc1b88c19812adf35")
+    req = urllib.request.Request(url, headers={**HEADERS, "Cookie": COOKIE, "Referer": DOC_URL})
+    text = urllib.request.urlopen(req, timeout=60).read().decode("utf-8", "replace")
+    m = re.match(r"^[^(]*\((.*)\)\s*;?\s*$", text, re.S)
+    return json.loads(m.group(1)) if m else json.loads(text)
+
+
+def decode_smartsheet(b64):
+    s = b64.replace("-", "+").replace("_", "/")
+    s += "=" * (-len(s) % 4)
+    rb = base64.b64decode(s)
+    for magic in (b"\x1f\x8b", b"\x78\x9c", b"\x78\x01", b"\x78\xda"):
+        if rb[:2] == magic:
+            try:
+                return json.loads(gzip.decompress(rb).decode("utf-8"))
+            except Exception:
+                try:
+                    return json.loads(zlib.decompress(rb).decode("utf-8"))
+                except Exception:
+                    pass
+    return json.loads(rb.decode("utf-8"))
+
+
+def get_records():
+    """读取发车表，返回 (session, [record_id, doc, tab, time, label, leader])"""
+    d = opendoc()
+    ccv = d["clientVars"]["collab_client_vars"]
+    session = {
+        "apid": ccv["apid"], "rev": ccv["rev"],
+        "sid": ccv["apid"]["s"], "tid": ccv["apid"]["t"], "sig": ccv["apid"]["g"],
+    }
+    raw = ccv["initialAttributedText"]["text"][0]["smartsheet"]
+    decoded = decode_smartsheet(raw)
+    rec_data = decoded[0][1]["c"]["k2"]["k1"]
+    records = []
+    for rid, rv in rec_data.items():
+        fields = rv.get("k1", {})
+        url = ""
+        v = fields.get("f4vckj")
+        if v and "k8" in v:
+            for o in v["k8"]:
+                if isinstance(o, dict) and o.get("k3"):
+                    url = o["k3"]
+                    break
+        if not url:
+            continue
+        m = re.search(r"/sheet/([A-Za-z0-9]+)", url)
+        if not m:
+            continue
+        doc = m.group(1)
+        tm = re.search(r"[?&]tab=([A-Za-z0-9]+)", url)
+        tab = tm.group(1) if tm else "BB08J2"
+        label = ""
+        if v and "k8" in v:
+            for o in v["k8"]:
+                if isinstance(o, dict) and o.get("k2"):
+                    label = o["k2"]
+                    break
+        dep_time = ""
+        tv = fields.get("fkfKit")
+        if tv and "k4" in tv:
+            ts = tv["k4"]
+            try:
+                dep_time = time.strftime("%m-%d %H:%M", time.localtime(int(ts) / 1000))
+            except Exception:
+                pass
+        leader = ""
+        hv = fields.get("fHSMJO")
+        if hv and "k1" in hv and isinstance(hv["k1"], list) and hv["k1"]:
+            leader = hv["k1"][0].get("k2", "")
+        records.append({"record_id": rid, "doc": doc, "tab": tab,
+                        "time": dep_time, "label": label, "leader": leader})
+    return session, records
+
 
 # 职业关键词（用于区分"名字"和"职业/位置"）
 JOBS = set("""骑士 盗贼 白魔 黑魔 时魔 武士 忍者 机工 舞者 诗人 召唤 赤魔 蝰蛇 远敏 近战 法系 盾奶 药师 猎人 炮手 魔剑
@@ -47,7 +135,7 @@ def is_job_token(s):
 def get_grid(doc, tab):
     """从SSR动作流重建网格: rows[y] = [(x, text), ...]"""
     url = f"https://docs.qq.com/sheet/{doc}?tab={tab}"
-    req = urllib.request.Request(url, headers={**ur.HEADERS, "Cookie": ur.COOKIE})
+    req = urllib.request.Request(url, headers={**HEADERS, "Cookie": COOKIE})
     html = urllib.request.urlopen(req, timeout=45).read().decode("utf-8", "replace")
     m = re.search(r'%22actions%22:%22([^"]*?)%22,%22flyweight%22', html)
     if not m:
@@ -288,7 +376,7 @@ def team_of(p):
 
 def build_database():
     """扫描所有车表, 建立玩家数据库"""
-    session, records = ur.get_records()
+    session, records = get_records()
     print(f"扫描 {len(records)} 个车表名单...")
     db = []  # [{time, leader, label, doc, tab, players}]
     for r in records:

@@ -21,9 +21,6 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_FILE = os.path.join(SCRIPT_DIR, "players_db.json")
 PORT = 8000
 
-spec = importlib.util.spec_from_file_location("ur", os.path.join(SCRIPT_DIR, "update_renshu.py"))
-ur = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(ur)
 spec2 = importlib.util.spec_from_file_location("qr", os.path.join(SCRIPT_DIR, "query_renshu.py"))
 qr = importlib.util.module_from_spec(spec2)
 spec2.loader.exec_module(qr)
