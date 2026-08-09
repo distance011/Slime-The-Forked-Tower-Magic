@@ -90,7 +90,7 @@ function doQuery() {
     div.className = 'result';
     var jobs = (r.p.main || '/') + '/' + (r.p.sub || '/');
     div.innerHTML =
-      '<div class="car">' + esc(r.roster.time) + ' · ' + esc(r.roster.label || '') + '</div>' +
+      '<div class="car">' + esc(r.roster.time) + '</div>' +
       '<div class="meta">车头 ' + esc(r.roster.leader) + '</div>' +
       '<div class="info">' +
         '<span><b>玩家:</b> ' + esc(r.p.name) + '</span>' +
