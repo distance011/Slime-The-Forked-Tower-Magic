@@ -61,19 +61,28 @@ function doQuery() {
   if (!kw) return;
   var status = document.getElementById('status');
   var results = [];
+  var now = new Date();
   DATA.rosters.forEach(function(roster) {
+    // 过滤已过期车次
+    if (!isUpcoming(roster.time, now)) return;
     roster.players.forEach(function(p) {
       if (p.qq === kw || (p.name && p.name.indexOf(kw) >= 0)) {
         results.push({roster: roster, p: p});
       }
     });
   });
+  // 按时间正序排列(早的在前)
+  results.sort(function(a, b) {
+    var ka = timeKey(a.roster.time), kb = timeKey(b.roster.time);
+    for (var i = 0; i < 4; i++) { if (ka[i] !== kb[i]) return ka[i] - kb[i]; }
+    return 0;
+  });
   if (results.length === 0) {
-    status.textContent = '未找到 "' + kw + '" 的报名记录';
+    status.textContent = '未找到 "' + kw + '" 的未过期报名记录';
     document.getElementById('results').innerHTML = '';
     return;
   }
-  status.textContent = '共找到 ' + results.length + ' 条记录';
+  status.textContent = '共找到 ' + results.length + ' 条记录(未过期, 按时间正序)';
   var box = document.getElementById('results');
   box.innerHTML = '';
   results.forEach(function(r) {
@@ -81,8 +90,8 @@ function doQuery() {
     div.className = 'result';
     var jobs = (r.p.main || '/') + '/' + (r.p.sub || '/');
     div.innerHTML =
-      '<div class="car">' + esc(r.roster.label || r.roster.time) + '</div>' +
-      '<div class="meta">' + esc(r.roster.time) + ' · 车头 ' + esc(r.roster.leader) + '</div>' +
+      '<div class="car">' + esc(r.roster.time) + ' · ' + esc(r.roster.label || '') + '</div>' +
+      '<div class="meta">' + esc(r.roster.label || '') + ' · 车头 ' + esc(r.roster.leader) + '</div>' +
       '<div class="info">' +
         '<span><b>玩家:</b> ' + esc(r.p.name) + '</span>' +
         '<span><b>QQ:</b> ' + esc(r.p.qq) + '</span>' +
@@ -92,6 +101,21 @@ function doQuery() {
       '<a class="link-btn" href="' + esc(r.roster.url) + '" target="_blank">打开该车表名单 →</a>';
     box.appendChild(div);
   });
+}
+function timeKey(s) {
+  var m = String(s || '').match(/(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{2})/);
+  if (m) return [parseInt(m[1]), parseInt(m[2]), parseInt(m[3]), parseInt(m[4])];
+  return [0, 0, 0, 0];
+}
+function isUpcoming(s, now) {
+  var k = timeKey(s);
+  if (k[0] === 0) return true;
+  var nk = [now.getMonth() + 1, now.getDate(), now.getHours(), now.getMinutes()];
+  for (var i = 0; i < 4; i++) {
+    if (k[i] < nk[i]) return false;
+    if (k[i] > nk[i]) return true;
+  }
+  return true;
 }
 function esc(s) {
   return (s == null ? '' : String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
