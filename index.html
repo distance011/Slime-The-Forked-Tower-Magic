@@ -16,6 +16,8 @@
   .search-box input:focus { border-color:#667eea; }
   .search-box button { padding:12px 24px; font-size:16px; border:none; border-radius:8px; background:#667eea; color:#fff; cursor:pointer; }
   .search-box button:hover { background:#5568d8; }
+  .search-box .export-btn { background:#2ecc71; }
+  .search-box .export-btn:hover { background:#27ae60; }
   .status { text-align:center; color:#999; padding:12px; }
   .result { background:#fff; border-radius:12px; padding:16px 20px; box-shadow:0 2px 8px rgba(0,0,0,.08); margin-bottom:14px; border-left:4px solid #667eea; }
   .result .car { font-size:17px; font-weight:600; color:#333; margin-bottom:8px; }
@@ -37,6 +39,7 @@
   <div class="search-box">
     <input id="kw" placeholder="输入游戏ID 或 QQ号，回车查询" autocomplete="off">
     <button onclick="doQuery()">查询</button>
+    <button class="export-btn" onclick="exportCSV()">导出CSV</button>
   </div>
   <div id="status" class="status">数据加载中...</div>
   <div id="results"></div>
@@ -45,6 +48,41 @@
 </div>
 <script>
 var DATA = {rosters: []};
+var currentResults = [];
+function exportCSV() {
+  if (!currentResults.length) {
+    alert('没有可导出的结果，请先点击查询');
+    return;
+  }
+  var rows = [['车表时间', '车头', '玩家', 'QQ', '队伍', '位置(主/副)']];
+  currentResults.forEach(function(r) {
+    rows.push([
+      r.roster.time,
+      r.roster.leader,
+      r.p.name,
+      r.p.qq,
+      r.p.team,
+      (r.p.main || '/') + '/' + (r.p.sub || '/')
+    ]);
+  });
+  var csv = '\uFEFF' + rows.map(function(row) {
+    return row.map(function(c) {
+      var s = String(c == null ? '' : c);
+      if (/[",\n\r]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+      return s;
+    }).join(',');
+  }).join('\r\n');
+  var blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  var kw = (document.getElementById('kw').value || 'query').trim();
+  a.download = '查询结果_' + kw + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 fetch('data.json')
   .then(function(r) { return r.json(); })
   .then(function(d) {
@@ -77,6 +115,7 @@ function doQuery() {
     for (var i = 0; i < 4; i++) { if (ka[i] !== kb[i]) return ka[i] - kb[i]; }
     return 0;
   });
+  currentResults = results;
   if (results.length === 0) {
     status.textContent = '未找到 "' + kw + '" 的未过期报名记录';
     document.getElementById('results').innerHTML = '';
