@@ -1,5 +1,5 @@
 {
- "generated": "2026-08-12 19:10",
+ "generated": "2026-08-12 19:31",
  "rosters": [
   {
    "label": "魔之塔发车表",
@@ -8096,6 +8096,13 @@
    "url": "https://docs.qq.com/sheet/DWmpzS0RNbGVyRmNI?tab=BB08J2",
    "players": [
     {
+     "name": "焚石",
+     "qq": "1220318779",
+     "team": "B队",
+     "main": "",
+     "sub": ""
+    },
+    {
      "name": "杉行恪",
      "qq": "3261618226",
      "team": "A队",
@@ -8113,6 +8120,13 @@
      "name": "htdd",
      "qq": "798276787",
      "team": "C队",
+     "main": "",
+     "sub": ""
+    },
+    {
+     "name": "Apuei",
+     "qq": "1210025280",
+     "team": "A队",
      "main": "",
      "sub": ""
     },
