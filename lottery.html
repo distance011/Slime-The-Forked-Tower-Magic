@@ -234,8 +234,10 @@ function renderGrid() {
   var box = document.getElementById("pgrid");
   box.innerHTML = "";
   document.getElementById("pcount").textContent = participants.length;
+  var shown = [];
   TEAM_ORDER.forEach(function(team){
     var members = participants.filter(function(p){ return normTeam(p.team) === team; });
+    shown = shown.concat(members);
     if (!members.length) return;
     var row = document.createElement("div");
     row.className = "trow";
@@ -252,6 +254,24 @@ function renderGrid() {
     });
     box.appendChild(row);
   });
+  // 未分队/荣誉人员: 显示在"自由位"行
+  var others = participants.filter(function(p){ return shown.indexOf(p) < 0; });
+  if (others.length) {
+    var row2 = document.createElement("div");
+    row2.className = "trow";
+    var tl2 = document.createElement("span");
+    tl2.className = "tname";
+    tl2.textContent = "自由位";
+    row2.appendChild(tl2);
+    others.forEach(function(p){
+      var d = document.createElement("div");
+      d.className = "p" + (allWinners().indexOf(p.name) >= 0 ? " won" : "");
+      d.id = "p_" + p.name;
+      d.textContent = p.name;
+      row2.appendChild(d);
+    });
+    box.appendChild(row2);
+  }
   if (!participants.length) box.textContent = "暂无参与者";
 }
 
