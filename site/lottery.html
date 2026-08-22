@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>史莱姆团 · 抽奖</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:"Microsoft YaHei","PingFang SC",sans-serif; background:#0f172a; color:#e2e8f0; min-height:100vh; }
+  .header { background:linear-gradient(135deg,#f59e0b,#ef4444); color:#fff; padding:24px 16px; text-align:center; }
+  .header h1 { font-size:26px; letter-spacing:2px; }
+  .header p { opacity:.9; font-size:14px; margin-top:6px; }
+  .container { max-width:820px; margin:0 auto; padding:20px 16px 40px; }
+  .card { background:#1e293b; border-radius:14px; padding:18px; margin-bottom:18px; border:1px solid #334155; }
+  .card h2 { font-size:17px; margin-bottom:12px; color:#fbbf24; }
+  .prizes { display:flex; flex-wrap:wrap; gap:10px; }
+  .prize { background:#334155; border-radius:10px; padding:10px 14px; font-size:15px; border:1px solid #475569; }
+  .prize.active { background:#f59e0b; color:#111; font-weight:700; border-color:#fbbf24; }
+  .rules { font-size:14px; line-height:1.8; color:#cbd5e1; white-space:pre-wrap; }
+  .stage { text-align:center; padding:28px 16px; }
+  .stage .curPrize { font-size:18px; color:#fbbf24; margin-bottom:10px; }
+  .stage .big { font-size:46px; font-weight:800; min-height:64px; line-height:64px; color:#fff; text-shadow:0 0 20px rgba(245,158,11,.6); }
+  .stage .big.spin { color:#fbbf24; animation:blink .12s infinite; }
+  .stage .sub { font-size:15px; color:#94a3b8; margin-top:8px; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.35} }
+  .status { display:inline-block; padding:4px 14px; border-radius:20px; font-size:13px; margin-top:8px; }
+  .status.idle { background:#334155; color:#cbd5e1; }
+  .status.spin { background:#f59e0b; color:#111; animation:blink .6s infinite; }
+  .status.done { background:#22c55e; color:#111; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:8px; }
+  .p { background:#1e293b; border:1px solid #334155; border-radius:8px; padding:6px 8px; font-size:13px; text-align:center; color:#cbd5e1; }
+  .p.lit { background:#f59e0b; color:#111; font-weight:700; }
+  .p.won { background:#22c55e; color:#111; text-decoration:line-through; opacity:.7; }
+  .history { display:flex; flex-direction:column; gap:8px; }
+  .hrow { display:flex; justify-content:space-between; align-items:center; background:#334155; border-radius:8px; padding:8px 12px; font-size:14px; }
+  .hrow b { color:#fbbf24; }
+  .btn { background:#f59e0b; color:#111; border:none; border-radius:8px; padding:12px 24px; font-size:16px; font-weight:700; cursor:pointer; }
+  .btn:hover { background:#fbbf24; }
+  .btn.gray { background:#475569; color:#e2e8f0; }
+  .btn.green { background:#22c55e; }
+  .btn.red { background:#ef4444; }
+  .admin { border:1px dashed #f59e0b; }
+  .admin label { font-size:13px; color:#94a3b8; display:block; margin:8px 0 4px; }
+  .admin input, .admin textarea { width:100%; background:#0f172a; border:1px solid #475569; border-radius:8px; padding:8px 10px; color:#e2e8f0; font-size:14px; margin-bottom:6px; }
+  .admin .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .foot { text-align:center; color:#64748b; font-size:12px; padding:16px; }
+  #err { color:#f87171; font-size:13px; margin-top:8px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🎁 史莱姆团 · 抽奖</h1>
+  <p>8.19 超魔之塔 · 实时抽奖</p>
+</div>
+<div class="container">
+
+  <div class="card">
+    <h2>🏆 奖品</h2>
+    <div id="prizes" class="prizes">加载中...</div>
+  </div>
+
+  <div class="card">
+    <h2>📜 抽奖方式</h2>
+    <div id="rules" class="rules">加载中...</div>
+  </div>
+
+  <div class="card stage">
+    <div class="curPrize" id="curPrize">当前奖品：-</div>
+    <div class="big" id="big">等待开始</div>
+    <div class="sub" id="stageSub"></div>
+    <div><span class="status idle" id="statusTag">未开始</span></div>
+    <div id="err"></div>
+  </div>
+
+  <div class="card">
+    <h2>🎯 参与者（<span id="pcount">0</span>人）</h2>
+    <div class="grid" id="pgrid"></div>
+  </div>
+
+  <div class="card">
+    <h2>📋 中奖记录</h2>
+    <div class="history" id="history">暂无</div>
+  </div>
+
+  <div class="card admin">
+    <h2>🔧 主持人控制台</h2>
+    <label>主持人密码</label>
+    <input type="password" id="pwd" placeholder="输入密码解锁控制">
+    <div id="adminArea" style="display:none">
+      <label>奖品（每行一个）</label>
+      <textarea id="prizesInput" rows="4"></textarea>
+      <label>抽奖方式说明</label>
+      <textarea id="rulesInput" rows="4"></textarea>
+      <div class="row">
+        <button class="btn" onclick="saveConfig()">保存奖品/规则</button>
+        <button class="btn green" onclick="startDraw()">▶ 开始抽奖</button>
+        <button class="btn red" onclick="stopDraw()">■ 停止/定中奖</button>
+        <button class="btn gray" onclick="resetAll()">↺ 重置全部</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">数据实时同步 Firebase · 页面自动更新</div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+// ============ Firebase 配置（等待填入） ============
+var firebaseConfig = {
+  apiKey: "AIzaSyBXdo9Tnm4mQB46c4T4eQEvMyezoDZqql0",
+  authDomain: "slime-lottery.firebaseapp.com",
+  databaseURL: "https://slime-lottery-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "slime-lottery",
+  storageBucket: "slime-lottery.firebasestorage.app",
+  messagingSenderId: "384316654739",
+  appId: "1:384316654739:web:6a714d8e4e4ff00041f966"
+};
+// =================================================
+
+// 默认参与者(48人) - 页面自动载入到 Firebase
+var DEFAULT_PARTICIPANTS = [
+"吃肉肉不长肉","皓天","冷凍睡眠","童话灬猫猫","Asbel","恋",
+"奈亚","魔法少女莉莉","被子君","Elyos","熙i","终魔神",
+"寒星掩月丶","小刺猬","冬雲","若叶凛","羡鱼","樱内梨",
+"浅野千夜","神奇的云土豆","冬枣","栗栗狐","荷天岚","花落冷清",
+"Volt","Aston","山風为嵐","宇文","冰糖萝卜","Spheal",
+"道芬","路边一条","嫩牛汁汁堡","啞釘","干物舰北宅","萊奧",
+"孽瞳","Ruach","配角","相马堇","雪乃奈绪","老咸鱼",
+"善淼淼","狗狗不吃骨头","佐佐木咲","有烟有火","小狗警探","鬼岛源崎"
+];
+var DEFAULT_PRIZES = ["神秘大奖×1","金币×若干","胡萝卜×3"];
+var DEFAULT_RULES = "抽奖方式说明（主持人可在控制台修改）：\n每人限中奖1次，中过的自动从候选名单剔除。";
+
+var PWD = "slime2026"; // 主持人密码, 可自行修改
+var db, root, state = {status:"idle", prizeIndex:0, winner:"", seed:0};
+var participants = [], prizes = [], rules = "", winners = {};
+var spinTimer = null;
+
+function init() {
+  if (firebaseConfig.apiKey.indexOf("PASTE") >= 0) {
+    document.getElementById("err").textContent = "Firebase 配置未填写";
+    return;
+  }
+  try {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+    root = db.ref("lottery");
+    listenAll();
+  } catch(e) {
+    document.getElementById("err").textContent = "Firebase 初始化失败: " + e.message;
+  }
+}
+
+function listenAll() {
+  root.child("participants").on("value", function(s){ 
+    participants = s.val() || [];
+    if (!participants.length && DEFAULT_PARTICIPANTS.length) {
+      // 首次自动载入
+      root.child("participants").set(DEFAULT_PARTICIPANTS);
+      participants = DEFAULT_PARTICIPANTS;
+    }
+    renderGrid();
+  });
+  root.child("prizes").on("value", function(s){ prizes = s.val() || []; renderPrizes(); });
+  root.child("rules").on("value", function(s){ rules = s.val() || ""; document.getElementById("rules").textContent = rules; });
+  root.child("winners").on("value", function(s){ winners = s.val() || {}; renderHistory(); renderGrid(); });
+  root.child("state").on("value", function(s){
+    state = s.val() || {status:"idle", prizeIndex:0, winner:"", seed:0};
+    renderStage();
+    if (state.status === "spinning") startSpin();
+    else stopSpin();
+  });
+}
+
+function renderPrizes() {
+  var box = document.getElementById("prizes");
+  box.innerHTML = "";
+  prizes.forEach(function(p, i){
+    var d = document.createElement("div");
+    d.className = "prize" + (i === (state.prizeIndex||0) ? " active" : "");
+    d.textContent = (i+1) + ". " + p;
+    box.appendChild(d);
+  });
+  if (!prizes.length) box.textContent = "暂无奖品";
+  document.getElementById("curPrize").textContent = "当前奖品：" + (prizes[state.prizeIndex] || "-");
+}
+
+function renderGrid() {
+  var box = document.getElementById("pgrid");
+  box.innerHTML = "";
+  document.getElementById("pcount").textContent = participants.length;
+  participants.forEach(function(n){
+    var d = document.createElement("div");
+    d.className = "p" + (Object.values(winners).indexOf(n) >= 0 ? " won" : "");
+    d.id = "p_" + n;
+    d.textContent = n;
+    box.appendChild(d);
+  });
+  if (!participants.length) box.textContent = "暂无参与者";
+}
+
+function renderHistory() {
+  var box = document.getElementById("history");
+  box.innerHTML = "";
+  var keys = Object.keys(winners).sort(function(a,b){return (+a) - (+b);});
+  if (!keys.length) { box.textContent = "暂无"; return; }
+  keys.forEach(function(k){
+    var row = document.createElement("div");
+    row.className = "hrow";
+    row.innerHTML = "<span><b>第" + (+k+1) + "项</b> · " + esc(prizes[+k] || ("奖品"+ (+k+1))) + "</span><span>🏆 " + esc(winners[k]) + "</span>";
+    box.appendChild(row);
+  });
+}
+
+function renderStage() {
+  var big = document.getElementById("big");
+  var tag = document.getElementById("statusTag");
+  var sub = document.getElementById("stageSub");
+  if (state.status === "spinning") {
+    tag.className = "status spin"; tag.textContent = "抽奖中...";
+    sub.textContent = "主持人在滚动，请稍候";
+  } else if (state.status === "done") {
+    big.className = "big"; big.textContent = state.winner || "?";
+    tag.className = "status done"; tag.textContent = "已定";
+    sub.textContent = "🎉 恭喜 " + (state.winner || "") + " 获得：" + (prizes[state.prizeIndex] || "本项奖品");
+  } else {
+    big.className = "big"; big.textContent = "等待开始";
+    tag.className = "status idle"; tag.textContent = "未开始";
+    sub.textContent = prizes.length ? "主持人点击「开始抽奖」后自动滚动" : "";
+  }
+  renderPrizes();
+}
+
+function startSpin() {
+  stopSpin();
+  var big = document.getElementById("big");
+  big.className = "big spin";
+  spinTimer = setInterval(function(){
+    var n = participants[Math.floor(Math.random() * participants.length)];
+    big.textContent = n;
+    // 高亮格子
+    var grid = document.getElementById("pgrid");
+    var els = grid.getElementsByClassName("lit");
+    for (var i=0;i<els.length;i++) els[i].classList.remove("lit");
+    var cell = document.getElementById("p_" + n);
+    if (cell) cell.classList.add("lit");
+  }, 90);
+}
+function stopSpin() {
+  if (spinTimer) { clearInterval(spinTimer); spinTimer = null; }
+}
+
+// ---------- 主持人控制 ----------
+document.getElementById("pwd").addEventListener("input", function(){
+  if (this.value === PWD) {
+    document.getElementById("adminArea").style.display = "block";
+    document.getElementById("prizesInput").value = prizes.join("\n");
+    document.getElementById("rulesInput").value = rules;
+  }
+});
+
+function saveConfig() {
+  var ps = document.getElementById("prizesInput").value.split("\n").map(function(s){return s.trim();}).filter(Boolean);
+  root.update({prizes: ps, rules: document.getElementById("rulesInput").value});
+}
+
+function remainingPool() {
+  var w = Object.values(winners);
+  return participants.filter(function(n){ return w.indexOf(n) < 0; });
+}
+
+function startDraw() {
+  if (state.status === "spinning") return;
+  var rem = remainingPool();
+  if (!rem.length) { alert("所有人都中过奖了"); return; }
+  var idx = state.prizeIndex || 0;
+  root.child("state").set({status:"spinning", prizeIndex:idx, winner:"", seed:Date.now()});
+}
+
+function stopDraw() {
+  if (state.status !== "spinning") return;
+  var rem = remainingPool();
+  if (!rem.length) { alert("候选为空"); return; }
+  var w = rem[Math.floor(Math.random() * rem.length)];
+  var idx = state.prizeIndex || 0;
+  var upd = {};
+  upd["state"] = {status:"done", prizeIndex:idx, winner:w, seed:Date.now()};
+  upd["winners/" + idx] = w;
+  root.update(upd);
+}
+
+function resetAll() {
+  if (!confirm("确定清空所有抽奖记录并重置？")) return;
+  root.update({winners: {}, state: {status:"idle", prizeIndex:0, winner:"", seed:0}});
+}
+
+function esc(s){ return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+init();
+</script>
+</body>
+</html>
