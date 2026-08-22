@@ -241,6 +241,14 @@ function normTeam(t) {
   return String(t || "").replace(/功能队/g, "").replace(/（D队）/g, "").replace(/（E队）/g, "").replace(/（F队）/g, "").replace(/功能位/g, "").replace(/（）/g, "").replace(/\(\)/g, "").trim();
 }
 
+function pClass(name) {
+  // 揭晓动画期间, 隐藏当前中奖者的标记, 防止提前穿帮
+  if (revealing && state.status === "done" && name === state.winner) return "p";
+  var isWon = allWinners().indexOf(name) >= 0;
+  var isLast = (name === lastWinner);
+  return "p" + (isWon ? " won" : "") + (isLast ? " lastwin" : "");
+}
+
 function renderGrid() {
   var box = document.getElementById("pgrid");
   box.innerHTML = "";
@@ -257,10 +265,8 @@ function renderGrid() {
     tl.textContent = team;
     row.appendChild(tl);
     members.forEach(function(p){
-      var isWon = allWinners().indexOf(p.name) >= 0;
-      var isLast = (p.name === lastWinner);
       var d = document.createElement("div");
-      d.className = "p" + (isWon ? " won" : "") + (isLast ? " lastwin" : "");
+      d.className = pClass(p.name);
       d.id = "p_" + p.name;
       d.textContent = p.name;
       row.appendChild(d);
@@ -277,10 +283,8 @@ function renderGrid() {
     tl2.textContent = "名誉抽奖位";
     row2.appendChild(tl2);
     others.forEach(function(p){
-      var isWon = allWinners().indexOf(p.name) >= 0;
-      var isLast = (p.name === lastWinner);
       var d = document.createElement("div");
-      d.className = "p" + (isWon ? " won" : "") + (isLast ? " lastwin" : "");
+      d.className = pClass(p.name);
       d.id = "p_" + p.name;
       d.textContent = p.name;
       row2.appendChild(d);
@@ -418,6 +422,7 @@ function playReveal(winner) {
     } else {
       revealing = false;
       big.className = "big";
+      renderGrid();  // 动画结束才标记中奖者(绿色+高亮)
       renderStage(); // 显示最终结果(静止)
     }
   }
