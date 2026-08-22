@@ -89,14 +89,18 @@
     <label>主持人密码</label>
     <input type="password" id="pwd" placeholder="输入密码解锁控制">
     <div id="adminArea" style="display:none">
-      <label>奖品（每行一个）</label>
+      <label>奖品（每行一个，数量用 *N，如：时装*3）</label>
       <textarea id="prizesInput" rows="4"></textarea>
       <label>抽奖方式说明</label>
       <textarea id="rulesInput" rows="4"></textarea>
+      <label>抽奖名单（每行一个：名字 或 名字,QQ 或 名字,QQ,队伍）</label>
+      <textarea id="rosterInput" rows="6"></textarea>
       <div class="row">
         <button class="btn" onclick="saveConfig()">保存奖品/规则</button>
+        <button class="btn" onclick="importRoster()">📥 导入抽奖名单</button>
         <button class="btn green" onclick="startDraw()">▶ 开始抽奖</button>
         <button class="btn red" onclick="stopDraw()">■ 停止/定中奖</button>
+        <button class="btn green" onclick="exportWinners()">📤 导出中奖人</button>
         <button class="btn gray" onclick="clearWinners()">🧹 清除中奖记录</button>
         <button class="btn gray" onclick="resetAll()">↺ 重置全部</button>
       </div>
@@ -312,8 +316,47 @@ document.getElementById("pwd").addEventListener("input", function(){
     document.getElementById("adminArea").style.display = "block";
     document.getElementById("prizesInput").value = prizes.join("\n");
     document.getElementById("rulesInput").value = rules;
+    document.getElementById("rosterInput").value = participants.map(function(p){
+      return [p.name, p.qq, p.team].filter(Boolean).join(",");
+    }).join("\n");
   }
 });
+
+function importRoster() {
+  var txt = document.getElementById("rosterInput").value.trim();
+  if (!txt) { alert("请先粘贴抽奖名单"); return; }
+  var list = txt.split(/\n/).map(function(s){ return s.trim(); }).filter(Boolean).map(function(line){
+    var parts = line.split(/[,，\t]/).map(function(s){ return s.trim(); });
+    return {name: parts[0], qq: parts[1] || "", team: parts[2] || ""};
+  }).filter(function(p){ return p.name; });
+  if (!list.length) { alert("名单解析为空"); return; }
+  if (!confirm("导入 " + list.length + " 人并覆盖当前名单？(同时清空中奖记录)")) return;
+  root.child("participants").set(list);
+  root.update({winners: {}, state: {status:"idle", prizeIndex:0, winner:"", seed:0}});
+}
+
+function exportWinners() {
+  var keys = Object.keys(winners).sort(function(a,b){ return (+a) - (+b); });
+  var rows = [["奖品序号","奖品","中奖者","QQ","队伍"]];
+  var has = false;
+  keys.forEach(function(k){
+    (winners[k] || []).forEach(function(n){
+      var pp = findP(n);
+      rows.push([(+k+1), prizeLabel(+k), n, pp ? pp.qq : "", pp ? pp.team : ""]);
+      has = true;
+    });
+  });
+  if (!has) { alert("还没有中奖记录"); return; }
+  var csv = "\uFEFF" + rows.map(function(r){
+    return r.map(function(c){ var s = String(c == null ? "" : c); if (/[",\n\r]/.test(s)) s = '"' + s.replace(/"/g,'""') + '"'; return s; }).join(",");
+  }).join("\r\n");
+  var blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url; a.download = "中奖名单.csv";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
 function saveConfig() {
   var ps = document.getElementById("prizesInput").value.split("\n").map(function(s){return s.trim();}).filter(Boolean);
