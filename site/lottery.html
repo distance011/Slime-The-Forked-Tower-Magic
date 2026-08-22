@@ -29,8 +29,8 @@
   .status.done { background:#22c55e; color:#111; }
   .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:8px; }
   .p { background:#1e293b; border:1px solid #334155; border-radius:8px; padding:6px 8px; font-size:13px; text-align:center; color:#cbd5e1; }
-  .p.lit { background:#f59e0b; color:#111; font-weight:700; }
-  .p.won { background:#22c55e; color:#111; text-decoration:line-through; opacity:.7; }
+  .p.lit { background:#f59e0b; color:#111; font-weight:700; box-shadow:0 0 10px rgba(245,158,11,.7); }
+  .p.won { background:#0b1220; color:#475569; text-decoration:line-through; border-color:#1e293b; }
   .history { display:flex; flex-direction:column; gap:8px; }
   .hrow { display:flex; justify-content:space-between; align-items:center; background:#334155; border-radius:8px; padding:8px 12px; font-size:14px; }
   .hrow b { color:#fbbf24; }
@@ -95,6 +95,7 @@
         <button class="btn" onclick="saveConfig()">保存奖品/规则</button>
         <button class="btn green" onclick="startDraw()">▶ 开始抽奖</button>
         <button class="btn red" onclick="stopDraw()">■ 停止/定中奖</button>
+        <button class="btn gray" onclick="clearWinners()">🧹 清除中奖记录</button>
         <button class="btn gray" onclick="resetAll()">↺ 重置全部</button>
       </div>
     </div>
@@ -120,17 +121,17 @@ var firebaseConfig = {
 
 // 默认参与者(48人) - 页面自动载入到 Firebase
 var DEFAULT_PARTICIPANTS = [
-"吃肉肉不长肉","皓天","冷凍睡眠","童话灬猫猫","Asbel","恋",
-"奈亚","魔法少女莉莉","被子君","Elyos","熙i","终魔神",
-"寒星掩月丶","小刺猬","冬雲","若叶凛","羡鱼","樱内梨",
-"浅野千夜","神奇的云土豆","冬枣","栗栗狐","荷天岚","花落冷清",
-"Volt","Aston","山風为嵐","宇文","冰糖萝卜","Spheal",
-"道芬","路边一条","嫩牛汁汁堡","啞釘","干物舰北宅","萊奧",
-"孽瞳","Ruach","配角","相马堇","雪乃奈绪","老咸鱼",
-"善淼淼","狗狗不吃骨头","佐佐木咲","有烟有火","小狗警探","鬼岛源崎"
+"sdx","演员新之助","pejoy","冰糖萝卜","mfsnll","比奇堡大河狸",
+"汵","aesfdd","立川狮巧","妃麗斯蒂娜","安兹乌尔恭","终魔神",
+"栗栗狐","Ruach","干物舰北宅","超级高手","雪乃奈绪","羡鱼",
+"小刺猬","风牙","路边一条","权志龙","nxdd","花落冷清",
+"Aston","山風为嵐","虎视喵喵","沉默的鱼","狗狗不吃骨头","苏啾啾",
+"Asbel","德鲁海墨","新城乔子","冰·","瓦洛克","槟寿司",
+"钢琴师","荷天岚","冬雲","闲愁锁清秋","Anddbb","熾羽幻翼",
+"浅野千夜","配角","佐佐木咲","琉玥丶","致远","相马堇"
 ];
-var DEFAULT_PRIZES = ["神秘大奖×1","金币×若干","胡萝卜×3"];
-var DEFAULT_RULES = "抽奖方式说明（主持人可在控制台修改）：\n每人限中奖1次，中过的自动从候选名单剔除。";
+var DEFAULT_PRIZES = ["演技教材·声援套装（白/紫/绿）*3","演技教材·声援套装（橙/粉/靛）*3","128时装*3","力之首饰整套/魔之首饰整套*1"];
+var DEFAULT_RULES = "每人限中奖1次，中过的自动从候选名单剔除，动画不会再经过中奖者。";
 
 var PWD = "slime2026"; // 主持人密码, 可自行修改
 var db, root, state = {status:"idle", prizeIndex:0, winner:"", seed:0};
@@ -237,7 +238,9 @@ function startSpin() {
   var big = document.getElementById("big");
   big.className = "big spin";
   spinTimer = setInterval(function(){
-    var n = participants[Math.floor(Math.random() * participants.length)];
+    var pool = remainingPool();
+    if (!pool.length) { stopSpin(); return; }
+    var n = pool[Math.floor(Math.random() * pool.length)];
     big.textContent = n;
     // 高亮格子
     var grid = document.getElementById("pgrid");
@@ -288,6 +291,11 @@ function stopDraw() {
   upd["state"] = {status:"done", prizeIndex:idx, winner:w, seed:Date.now()};
   upd["winners/" + idx] = w;
   root.update(upd);
+}
+
+function clearWinners() {
+  if (!confirm("确定清除所有中奖记录？(保留奖品/规则/参与者，可重新抽)")) return;
+  root.update({winners: {}, state: {status:"idle", prizeIndex:0, winner:"", seed:0}});
 }
 
 function resetAll() {
