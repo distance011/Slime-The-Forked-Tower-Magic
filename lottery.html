@@ -27,13 +27,12 @@
   .status.idle { background:#334155; color:#cbd5e1; }
   .status.spin { background:#f59e0b; color:#111; animation:blink .6s infinite; }
   .status.done { background:#22c55e; color:#111; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:8px; }
-  .teamhdr { grid-column:1/-1; background:#334155; color:#fbbf24; font-weight:700; border-radius:8px; padding:6px 10px; font-size:13px; margin-top:6px; }
-  .p { background:#1e293b; border:1px solid #334155; border-radius:8px; padding:6px 8px; font-size:13px; text-align:center; color:#cbd5e1; }
-  .p .t { display:block; font-size:10px; color:#64748b; }
+  .grid { display:flex; flex-direction:column; gap:6px; }
+  .trow { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:6px 10px; background:#1e293b; border-radius:10px; border:1px solid #334155; }
+  .tname { font-weight:700; color:#fbbf24; font-size:13px; min-width:150px; flex-shrink:0; }
+  .p { display:inline-block; background:#0f172a; border:1px solid #334155; border-radius:8px; padding:4px 10px; font-size:13px; color:#cbd5e1; }
   .p.lit { background:#f59e0b; color:#111; font-weight:700; box-shadow:0 0 10px rgba(245,158,11,.7); }
   .p.won { background:#0b1220; color:#475569; text-decoration:line-through; border-color:#1e293b; }
-  .p.won .t { color:#334155; }
   .history { display:flex; flex-direction:column; gap:8px; }
   .hrow { display:flex; justify-content:space-between; align-items:center; background:#334155; border-radius:8px; padding:8px 12px; font-size:14px; }
   .hrow b { color:#fbbf24; }
@@ -201,17 +200,20 @@ function renderGrid() {
   TEAM_ORDER.forEach(function(team){
     var members = participants.filter(function(p){ return p.team === team; });
     if (!members.length) return;
-    var h = document.createElement("div");
-    h.className = "teamhdr";
-    h.textContent = team;
-    box.appendChild(h);
+    var row = document.createElement("div");
+    row.className = "trow";
+    var tl = document.createElement("span");
+    tl.className = "tname";
+    tl.textContent = team;
+    row.appendChild(tl);
     members.forEach(function(p){
       var d = document.createElement("div");
       d.className = "p" + (Object.values(winners).indexOf(p.name) >= 0 ? " won" : "");
       d.id = "p_" + p.name;
-      d.innerHTML = esc(p.name) + '<span class="t">' + esc(p.qq) + "</span>";
-      box.appendChild(d);
+      d.textContent = p.name;
+      row.appendChild(d);
     });
+    box.appendChild(row);
   });
   if (!participants.length) box.textContent = "暂无参与者";
 }
