@@ -95,9 +95,12 @@
       <textarea id="rulesInput" rows="4"></textarea>
       <label>抽奖名单（每行一个：名字 或 名字,QQ 或 名字,QQ,队伍）</label>
       <textarea id="rosterInput" rows="6"></textarea>
+      <label>从在线文档导入（粘贴腾讯文档链接，如 https://docs.qq.com/sheet/xxx?tab=xxx）</label>
+      <input type="text" id="docUrlInput" placeholder="粘贴腾讯文档在线名单链接">
       <div class="row">
         <button class="btn" onclick="saveConfig()">保存奖品/规则</button>
         <button class="btn" onclick="importRoster()">📥 导入抽奖名单</button>
+        <button class="btn" onclick="importFromDoc()">📄 从在线文档导入</button>
         <button class="btn green" onclick="startDraw()">▶ 开始抽奖</button>
         <button class="btn red" onclick="stopDraw()">■ 停止/定中奖</button>
         <button class="btn green" onclick="exportWinners()">📤 导出中奖人</button>
@@ -333,6 +336,24 @@ function importRoster() {
   if (!confirm("导入 " + list.length + " 人并覆盖当前名单？(同时清空中奖记录)")) return;
   root.child("participants").set(list);
   root.update({winners: {}, state: {status:"idle", prizeIndex:0, winner:"", seed:0}});
+}
+
+function importFromDoc() {
+  var url = document.getElementById("docUrlInput").value.trim();
+  if (!url) { alert("请先粘贴在线文档链接"); return; }
+  fetch("http://127.0.0.1:8001/read?url=" + encodeURIComponent(url))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d.ok) { alert("读取失败：" + (d.error || "")); return; }
+      if (!d.players || !d.players.length) { alert("名单为空或未解析到玩家"); return; }
+      if (!confirm("从文档读取到 " + d.players.length + " 人，导入并覆盖当前名单？(同时清空中奖记录)")) return;
+      root.child("participants").set(d.players);
+      root.update({winners: {}, state: {status:"idle", prizeIndex:0, winner:"", seed:0}});
+      alert("已导入 " + d.players.length + " 人！");
+    })
+    .catch(function(){
+      alert("无法连接导入服务。\n请在主持人电脑上运行 lottery_server.py，并用 http://127.0.0.1:8001/lottery.html 打开本页后再导入。");
+    });
 }
 
 function exportWinners() {
