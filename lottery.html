@@ -192,7 +192,7 @@ function currentPrizeIndex() {
 }
 function allWinners() {
   var a = [];
-  Object.keys(winners).forEach(function(k){ a = a.concat(winners[k] || []); });
+  Object.keys(winners).forEach(function(k){ a = a.concat((winners[k] || []).map(winName)); });
   return a;
 }
 function remainingPool() {
@@ -217,6 +217,9 @@ function findP(name) {
   for (var i=0;i<participants.length;i++) if (participants[i].name === name) return participants[i];
   return null;
 }
+
+function winName(o) { return (typeof o === "object") ? o.n : o; }
+function winSeed(o) { return (typeof o === "object") ? (o.s || "") : ""; }
 
 function normTeam(t) {
   return String(t || "").replace(/功能队/g, "").replace(/（D队）/g, "").replace(/（E队）/g, "").replace(/（F队）/g, "").replace(/功能位/g, "").replace(/（）/g, "").replace(/\(\)/g, "").trim();
@@ -257,7 +260,7 @@ function renderHistory() {
     if (!arr.length) return;
     var row = document.createElement("div");
     row.className = "hrow";
-    var names = arr.map(function(n){ var pp = findP(n); return esc(n) + (pp && pp.qq ? "（QQ " + esc(pp.qq) + "）" : ""); }).join("、");
+    var names = arr.map(winName).map(function(n){ var pp = findP(n); return esc(n) + (pp && pp.qq ? "（QQ " + esc(pp.qq) + "）" : ""); }).join("、");
     row.innerHTML = "<span><b>第" + (+k+1) + "项</b> · " + esc(prizeLabel(+k)) + (prizeQty(+k)>1 ? "×"+prizeQty(+k) : "") + "</span><span>🏆 " + names + "</span>";
     box.appendChild(row);
   });
@@ -284,7 +287,7 @@ function renderStage() {
     var wp = findP(state.winner);
     var doneCopy = winnersOf(state.prizeIndex).length;
     var q2 = prizeQty(state.prizeIndex);
-    sub.innerHTML = "🎉 恭喜 " + esc(state.winner || "") + (wp && wp.qq ? "（QQ " + esc(wp.qq) + "）" : "") + " 获得：" + esc(prizeLabel(state.prizeIndex)) + (q2 > 1 ? "（第" + doneCopy + "/" + q2 + "份）" : "") + '<br><span class="seedinfo">开始时刻 ' + (state.startP != null ? (Math.round(state.startP*1000) + " µs") : "-") + " · 停止时刻 " + (state.stopP != null ? (Math.round(state.stopP*1000) + " µs") : "-") + " · 随机种子 " + esc(state.seed || "-") + "（结果由高精度起止时刻共同决定，可复核）</span>";
+    sub.textContent = "🎉 恭喜 " + (state.winner || "") + (wp && wp.qq ? "（QQ " + wp.qq + "）" : "") + " 获得：" + prizeLabel(state.prizeIndex) + (q2 > 1 ? "（第" + doneCopy + "/" + q2 + "份）" : "");
   } else {
     big.className = "big"; big.textContent = "等待开始";
     tag.className = "status idle"; tag.textContent = "未开始";
@@ -360,12 +363,13 @@ function importFromDoc() {
 
 function exportWinners() {
   var keys = Object.keys(winners).sort(function(a,b){ return (+a) - (+b); });
-  var rows = [["奖品序号","奖品","中奖者","QQ","队伍"]];
+  var rows = [["奖品序号","奖品","中奖者","QQ","队伍","随机种子(起止时刻)"]];
   var has = false;
   keys.forEach(function(k){
-    (winners[k] || []).forEach(function(n){
+    (winners[k] || []).forEach(function(o){
+      var n = winName(o);
       var pp = findP(n);
-      rows.push([(+k+1), prizeLabel(+k), n, pp ? pp.qq : "", pp ? pp.team : ""]);
+      rows.push([(+k+1), prizeLabel(+k), n, pp ? pp.qq : "", pp ? pp.team : "", winSeed(o)]);
       has = true;
     });
   });
@@ -415,7 +419,7 @@ function stopDraw() {
   var startP = state.startP || 0;
   var seed = startP.toFixed(3) + "-" + stopP.toFixed(3);
   var w = pickFromSeed(seed, rem);
-  var arr = winnersOf(idx).concat([w]);
+  var arr = winnersOf(idx).concat([{n: w, s: seed}]);
   var upd = {};
   upd["state"] = {status:"done", prizeIndex:idx, winner:w, seed:seed,
                   startP:startP, startAt:state.startAt || 0, stopP:stopP, stopAt:Date.now()};
