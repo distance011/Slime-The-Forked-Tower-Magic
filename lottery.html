@@ -166,7 +166,7 @@ function listenAll() {
   });
   root.child("prizes").on("value", function(s){ prizes = s.val() || []; renderPrizes(); });
   root.child("rules").on("value", function(s){ rules = s.val() || ""; document.getElementById("rules").textContent = rules; });
-  root.child("winners").on("value", function(s){ winners = s.val() || {}; renderHistory(); renderGrid(); });
+  root.child("winners").on("value", function(s){ winners = s.val() || {}; renderHistory(); renderGrid(); renderStage(); });
   root.child("state").on("value", function(s){
     state = s.val() || {status:"idle", prizeIndex:0, winner:"", seed:0};
     renderStage();
@@ -175,17 +175,34 @@ function listenAll() {
   });
 }
 
+function prizeQty(i) { var m = String(prizes[i]||"").match(/\*(\d+)\s*$/); return m ? parseInt(m[1]) : 1; }
+function prizeLabel(i) { return String(prizes[i]||"").replace(/\*\d+\s*$/, "").trim(); }
+function winnersOf(i) { return winners[i] || []; }
+function currentPrizeIndex() {
+  for (var i=0;i<prizes.length;i++) if (winnersOf(i).length < prizeQty(i)) return i;
+  return -1;
+}
+function allWinners() {
+  var a = [];
+  Object.keys(winners).forEach(function(k){ a = a.concat(winners[k] || []); });
+  return a;
+}
+function remainingPool() {
+  var w = allWinners();
+  return participants.filter(function(p){ return w.indexOf(p.name) < 0; }).map(function(p){ return p.name; });
+}
+
 function renderPrizes() {
   var box = document.getElementById("prizes");
   box.innerHTML = "";
+  var cur = (state.status === "done" && state.prizeIndex != null) ? state.prizeIndex : currentPrizeIndex();
   prizes.forEach(function(p, i){
     var d = document.createElement("div");
-    d.className = "prize" + (i === (state.prizeIndex||0) ? " active" : "");
-    d.textContent = (i+1) + ". " + p;
+    d.className = "prize" + (i === cur ? " active" : "");
+    d.textContent = (i+1) + ". " + prizeLabel(i) + (prizeQty(i)>1 ? " ×"+prizeQty(i) : "") + (winnersOf(i).length ? "（" + winnersOf(i).length + "/" + prizeQty(i) + "）" : "");
     box.appendChild(d);
   });
   if (!prizes.length) box.textContent = "暂无奖品";
-  document.getElementById("curPrize").textContent = "当前奖品：" + (prizes[state.prizeIndex] || "-");
 }
 
 function findP(name) {
@@ -212,7 +229,7 @@ function renderGrid() {
     row.appendChild(tl);
     members.forEach(function(p){
       var d = document.createElement("div");
-      d.className = "p" + (Object.values(winners).indexOf(p.name) >= 0 ? " won" : "");
+      d.className = "p" + (allWinners().indexOf(p.name) >= 0 ? " won" : "");
       d.id = "p_" + p.name;
       d.textContent = p.name;
       row.appendChild(d);
@@ -228,10 +245,12 @@ function renderHistory() {
   var keys = Object.keys(winners).sort(function(a,b){return (+a) - (+b);});
   if (!keys.length) { box.textContent = "暂无"; return; }
   keys.forEach(function(k){
+    var arr = winners[k] || [];
+    if (!arr.length) return;
     var row = document.createElement("div");
     row.className = "hrow";
-    var wp = findP(winners[k]);
-    row.innerHTML = "<span><b>第" + (+k+1) + "项</b> · " + esc(prizes[+k] || ("奖品"+ (+k+1))) + "</span><span>🏆 " + esc(winners[k]) + (wp && wp.qq ? "（QQ " + esc(wp.qq) + "）" : "") + "</span>";
+    var names = arr.map(function(n){ var pp = findP(n); return esc(n) + (pp && pp.qq ? "（QQ " + esc(pp.qq) + "）" : ""); }).join("、");
+    row.innerHTML = "<span><b>第" + (+k+1) + "项</b> · " + esc(prizeLabel(+k)) + (prizeQty(+k)>1 ? "×"+prizeQty(+k) : "") + "</span><span>🏆 " + names + "</span>";
     box.appendChild(row);
   });
 }
@@ -240,6 +259,14 @@ function renderStage() {
   var big = document.getElementById("big");
   var tag = document.getElementById("statusTag");
   var sub = document.getElementById("stageSub");
+  var cur = (state.status === "done" && state.prizeIndex != null) ? state.prizeIndex : currentPrizeIndex();
+  var curPrizeEl = document.getElementById("curPrize");
+  if (cur < 0) {
+    curPrizeEl.textContent = "当前奖品：已全部抽完 🎉";
+  } else {
+    var qty = prizeQty(cur), done = winnersOf(cur).length;
+    curPrizeEl.textContent = "当前奖品：" + prizeLabel(cur) + (qty > 1 ? "（" + done + "/" + qty + "份）" : "");
+  }
   if (state.status === "spinning") {
     tag.className = "status spin"; tag.textContent = "抽奖中...";
     sub.textContent = "主持人在滚动，请稍候";
@@ -247,7 +274,9 @@ function renderStage() {
     big.className = "big"; big.textContent = state.winner || "?";
     tag.className = "status done"; tag.textContent = "已定";
     var wp = findP(state.winner);
-    sub.textContent = "🎉 恭喜 " + (state.winner || "") + (wp && wp.qq ? "（QQ " + esc(wp.qq) + "）" : "") + " 获得：" + (prizes[state.prizeIndex] || "本项奖品");
+    var doneCopy = winnersOf(state.prizeIndex).length;
+    var q2 = prizeQty(state.prizeIndex);
+    sub.textContent = "🎉 恭喜 " + (state.winner || "") + (wp && wp.qq ? "（QQ " + esc(wp.qq) + "）" : "") + " 获得：" + prizeLabel(state.prizeIndex) + (q2 > 1 ? "（第" + doneCopy + "/" + q2 + "份）" : "");
   } else {
     big.className = "big"; big.textContent = "等待开始";
     tag.className = "status idle"; tag.textContent = "未开始";
@@ -291,28 +320,25 @@ function saveConfig() {
   root.update({prizes: ps, rules: document.getElementById("rulesInput").value});
 }
 
-function remainingPool() {
-  var w = Object.values(winners);
-  return participants.filter(function(p){ return w.indexOf(p.name) < 0; }).map(function(p){ return p.name; });
-}
-
 function startDraw() {
   if (state.status === "spinning") return;
+  var idx = currentPrizeIndex();
+  if (idx < 0) { alert("所有奖品都已抽完"); return; }
   var rem = remainingPool();
-  if (!rem.length) { alert("所有人都中过奖了"); return; }
-  var idx = state.prizeIndex || 0;
+  if (!rem.length) { alert("候选人为空"); return; }
   root.child("state").set({status:"spinning", prizeIndex:idx, winner:"", seed:Date.now()});
 }
 
 function stopDraw() {
   if (state.status !== "spinning") return;
+  var idx = state.prizeIndex;
   var rem = remainingPool();
-  if (!rem.length) { alert("候选为空"); return; }
+  if (!rem.length) { alert("候选人为空"); return; }
   var w = rem[Math.floor(Math.random() * rem.length)];
-  var idx = state.prizeIndex || 0;
+  var arr = winnersOf(idx).concat([w]);
   var upd = {};
   upd["state"] = {status:"done", prizeIndex:idx, winner:w, seed:Date.now()};
-  upd["winners/" + idx] = w;
+  upd["winners/" + idx] = arr;
   root.update(upd);
 }
 
