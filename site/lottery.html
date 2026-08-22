@@ -71,6 +71,10 @@
     <div class="big" id="big">等待开始</div>
     <div class="sub" id="stageSub"></div>
     <div><span class="status idle" id="statusTag">未开始</span></div>
+    <div id="stageControls" style="display:none; margin-top:14px;">
+      <button class="btn" onclick="startDraw()">▶ 开始抽奖</button>
+      <button class="btn red" onclick="stopDraw()">■ 停止抽奖</button>
+    </div>
     <div id="err"></div>
   </div>
 
@@ -101,8 +105,6 @@
         <button class="btn" onclick="saveConfig()">保存奖品/规则</button>
         <button class="btn" onclick="importRoster()">📥 导入抽奖名单</button>
         <button class="btn" onclick="importFromDoc()">📄 从在线文档导入</button>
-        <button class="btn green" onclick="startDraw()">▶ 开始抽奖</button>
-        <button class="btn red" onclick="stopDraw()">■ 停止/定中奖</button>
         <button class="btn green" onclick="exportWinners()">📤 导出中奖人</button>
         <button class="btn gray" onclick="clearWinners()">🧹 清除中奖记录</button>
         <button class="btn gray" onclick="resetAll()">↺ 重置全部</button>
@@ -145,6 +147,7 @@ var PWD = "slime2026"; // 主持人密码, 可自行修改
 var db, root, state = {status:"idle", prizeIndex:0, winner:"", seed:0};
 var participants = [], prizes = [], rules = "", winners = {};
 var spinTimer = null;
+var prevStatus = "";
 
 function init() {
   if (firebaseConfig.apiKey.indexOf("PASTE") >= 0) {
@@ -175,10 +178,13 @@ function listenAll() {
   root.child("rules").on("value", function(s){ rules = s.val() || ""; document.getElementById("rules").textContent = rules; });
   root.child("winners").on("value", function(s){ winners = s.val() || {}; renderHistory(); renderGrid(); renderStage(); });
   root.child("state").on("value", function(s){
-    state = s.val() || {status:"idle", prizeIndex:0, winner:"", seed:0};
-    renderStage();
+    var old = prevStatus;
+    state = s.val() || {status:"idle", prizeIndex:0, winner:"", seed:0, startP:0, stopP:0};
+    prevStatus = state.status;
+    if (state.status === "done" && old === "spinning") { playReveal(state.winner); return; }
     if (state.status === "spinning") startSpin();
     else stopSpin();
+    renderStage();
   });
 }
 
@@ -317,10 +323,41 @@ function stopSpin() {
   if (spinTimer) { clearInterval(spinTimer); spinTimer = null; }
 }
 
+function playReveal(winner) {
+  stopSpin();
+  var big = document.getElementById("big");
+  var tag = document.getElementById("statusTag");
+  big.className = "big spin";
+  tag.className = "status spin"; tag.textContent = "揭晓中...";
+  var pool = remainingPool().filter(function(n){ return n !== winner; });
+  var delay = 55, frame = 0;
+  function tick() {
+    frame++;
+    if (delay < 430) {
+      var n = pool.length ? pool[Math.floor(Math.random() * pool.length)] : winner;
+      big.textContent = n;
+      var cell = document.getElementById("p_" + n);
+      if (cell) {
+        var els = document.getElementById("pgrid").getElementsByClassName("lit");
+        for (var i=0;i<els.length;i++) els[i].classList.remove("lit");
+        cell.classList.add("lit");
+      }
+      delay = Math.min(430, 55 + frame * 13); // 逐帧减速
+      setTimeout(tick, delay);
+    } else {
+      big.textContent = winner;
+      big.className = "big";
+      renderStage(); // 显示最终结果
+    }
+  }
+  tick();
+}
+
 // ---------- 主持人控制 ----------
 document.getElementById("pwd").addEventListener("input", function(){
   if (this.value === PWD) {
     document.getElementById("adminArea").style.display = "block";
+    document.getElementById("stageControls").style.display = "block";
     document.getElementById("prizesInput").value = prizes.join("\n");
     document.getElementById("rulesInput").value = rules;
     document.getElementById("rosterInput").value = participants.map(function(p){
