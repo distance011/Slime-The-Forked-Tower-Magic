@@ -148,6 +148,7 @@ var db, root, state = {status:"idle", prizeIndex:0, winner:"", seed:0};
 var participants = [], prizes = [], rules = "", winners = {};
 var spinTimer = null;
 var prevStatus = "";
+var revealing = false;
 
 function init() {
   if (firebaseConfig.apiKey.indexOf("PASTE") >= 0) {
@@ -181,6 +182,12 @@ function listenAll() {
     var old = prevStatus;
     state = s.val() || {status:"idle", prizeIndex:0, winner:"", seed:0, startP:0, stopP:0};
     prevStatus = state.status;
+    if (state.status === "done") {
+      stopSpin();
+      if (old === "spinning") playReveal(state.winner);
+      else renderStage();
+      return;
+    }
     if (state.status === "spinning") startSpin();
     else stopSpin();
     renderStage();
@@ -302,6 +309,11 @@ function renderStage() {
     var qty = prizeQty(cur), done = winnersOf(cur).length;
     curPrizeEl.textContent = "当前奖品：" + prizeLabel(cur) + (qty > 1 ? "（" + done + "/" + qty + "份）" : "");
   }
+  if (revealing && state.status === "done") {
+    // 揭晓动画期间, 大屏由 playReveal 控制, 避免互相覆盖
+    renderPrizes();
+    return;
+  }
   if (state.status === "spinning") {
     tag.className = "status spin"; tag.textContent = "抽奖中...";
     sub.textContent = "主持人在滚动，请稍候";
@@ -345,7 +357,6 @@ function startSpin() {
     if (state.status !== "spinning") { stopSpin(); return; }
     var pool = remainingPool();
     if (!pool.length) { stopSpin(); return; }
-    // 种子驱动的确定性序列: 所有客户端看到一致的滚动
     var n = pool[Math.floor(rng() * pool.length)];
     big.textContent = n;
     var grid = document.getElementById("pgrid");
@@ -353,14 +364,53 @@ function startSpin() {
     for (var i=0;i<els.length;i++) els[i].classList.remove("lit");
     var cell = document.getElementById("p_" + n);
     if (cell) cell.classList.add("lit");
-    // 渐变减速: 55ms 逐渐到 300ms, 最后慢速停
-    if (delay < 300) delay = Math.min(300, delay + 7);
-    spinTimer = setTimeout(tick, delay);
+    spinTimer = setTimeout(tick, delay); // 匀速快滚
   }
   tick();
 }
 function stopSpin() {
   if (spinTimer) { clearTimeout(spinTimer); spinTimer = null; }
+}
+
+// 停止后: 固定数量的慢速滚动(由种子生成), 最后落回中奖者并静止显示
+function playReveal(winner) {
+  stopSpin();
+  revealing = true;
+  var big = document.getElementById("big");
+  var tag = document.getElementById("statusTag");
+  var seed = state.seed || (Date.now().toString(36));
+  var rng = mulberry32(hashStr(seed));
+  var pool = remainingPool();
+  var count = 8; // 固定慢速次数(全端一致)
+  var names = [];
+  if (pool.length) {
+    for (var i=0;i<count;i++) names.push(pool[Math.floor(rng() * pool.length)]);
+  }
+  names.push(winner); // 最后一个一定是中奖者
+  var delay = 300;   // 每步间隔(持续慢速)
+  var idx = 0;
+  function step() {
+    var n = names[idx];
+    big.textContent = n;
+    // 只在滚动过程闪烁, 最后静止
+    big.className = (idx < names.length - 1) ? "big spin" : "big";
+    tag.className = "status spin"; tag.textContent = "揭晓中...";
+    var cell = document.getElementById("p_" + n);
+    if (cell) {
+      var els = document.getElementById("pgrid").getElementsByClassName("lit");
+      for (var i=0;i<els.length;i++) els[i].classList.remove("lit");
+      cell.classList.add("lit");
+    }
+    idx++;
+    if (idx < names.length) {
+      setTimeout(step, delay);
+    } else {
+      revealing = false;
+      big.className = "big";
+      renderStage(); // 显示最终结果(静止)
+    }
+  }
+  step();
 }
 
 // ---------- 主持人控制 ----------
