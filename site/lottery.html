@@ -27,6 +27,7 @@
   .status.idle { background:#334155; color:#cbd5e1; }
   .status.spin { background:#f59e0b; color:#111; animation:blink .6s infinite; }
   .status.done { background:#22c55e; color:#111; }
+  .seedinfo { font-size:12px; color:#64748b; display:block; margin-top:6px; }
   .grid { display:flex; flex-direction:column; gap:6px; overflow-x:auto; }
   .trow { display:flex; flex-wrap:nowrap; align-items:center; gap:8px; padding:6px 10px; background:#1e293b; border-radius:10px; border:1px solid #334155; margin-bottom:6px; }
   .tname { font-weight:700; color:#fbbf24; font-size:14px; min-width:64px; flex-shrink:0; text-align:left; }
@@ -139,7 +140,7 @@ var DEFAULT_PARTICIPANTS = [
 {name:"虎视喵喵",qq:"408741553",team:"3队"},{name:"苏啾啾",qq:"738280531",team:"3队"},{name:"新城乔子",qq:"200898196",team:"3队"},{name:"槟寿司",qq:"3551489254",team:"3队"},{name:"冬雲",qq:"529578875",team:"3队"},{name:"熾羽幻翼",qq:"376206545",team:"3队"},{name:"佐佐木咲",qq:"1300024789",team:"3队"},{name:"相马堇",qq:"2685677162",team:"3队"}
 ];
 var DEFAULT_PRIZES = ["演技教材·声援套装（白/紫/绿）*3","演技教材·声援套装（橙/粉/靛）*3","128时装*3","力之首饰整套/魔之首饰整套*1"];
-var DEFAULT_RULES = "每人限中奖1次，中过的自动从候选名单剔除，动画不会再经过中奖者。";
+var DEFAULT_RULES = "每人限中奖1次，中过的自动从候选名单剔除。结果由「开始抽奖」时提交的随机种子决定，停止按钮仅为展示，动画无法影响结果；每次公布后会显示随机种子供查验。";
 
 var PWD = "slime2026"; // 主持人密码, 可自行修改
 var db, root, state = {status:"idle", prizeIndex:0, winner:"", seed:0};
@@ -283,7 +284,7 @@ function renderStage() {
     var wp = findP(state.winner);
     var doneCopy = winnersOf(state.prizeIndex).length;
     var q2 = prizeQty(state.prizeIndex);
-    sub.textContent = "🎉 恭喜 " + (state.winner || "") + (wp && wp.qq ? "（QQ " + esc(wp.qq) + "）" : "") + " 获得：" + prizeLabel(state.prizeIndex) + (q2 > 1 ? "（第" + doneCopy + "/" + q2 + "份）" : "");
+    sub.innerHTML = "🎉 恭喜 " + esc(state.winner || "") + (wp && wp.qq ? "（QQ " + esc(wp.qq) + "）" : "") + " 获得：" + esc(prizeLabel(state.prizeIndex)) + (q2 > 1 ? "（第" + doneCopy + "/" + q2 + "份）" : "") + '<br><span class="seedinfo">随机种子：' + esc(state.seed || "") + "（结果由开始时提交的种子决定，可验证）</span>";
   } else {
     big.className = "big"; big.textContent = "等待开始";
     tag.className = "status idle"; tag.textContent = "未开始";
@@ -299,6 +300,7 @@ function startSpin() {
   spinTimer = setInterval(function(){
     var pool = remainingPool();
     if (!pool.length) { stopSpin(); return; }
+    // 完全随机跳转(无顺序规律), 快速闪烁, 无法用肉眼跟读
     var n = pool[Math.floor(Math.random() * pool.length)];
     big.textContent = n;
     // 高亮格子
@@ -307,7 +309,7 @@ function startSpin() {
     for (var i=0;i<els.length;i++) els[i].classList.remove("lit");
     var cell = document.getElementById("p_" + n);
     if (cell) cell.classList.add("lit");
-  }, 90);
+  }, 55);
 }
 function stopSpin() {
   if (spinTimer) { clearInterval(spinTimer); spinTimer = null; }
@@ -384,13 +386,22 @@ function saveConfig() {
   root.update({prizes: ps, rules: document.getElementById("rulesInput").value});
 }
 
+function pickFromSeed(seed, pool) {
+  // 由种子确定性选出中奖者(简单hash), 结果在开始时已定
+  var h = 2166136261;
+  for (var i=0;i<seed.length;i++) { h ^= seed.charCodeAt(i); h = (h*16777619) >>> 0; }
+  return pool[h % pool.length];
+}
+
 function startDraw() {
   if (state.status === "spinning") return;
   var idx = currentPrizeIndex();
   if (idx < 0) { alert("所有奖品都已抽完"); return; }
   var rem = remainingPool();
   if (!rem.length) { alert("候选人为空"); return; }
-  root.child("state").set({status:"spinning", prizeIndex:idx, winner:"", seed:Date.now()});
+  // 开始时提交随机种子(公开可见), 中奖结果由此种子决定, 停止按钮只是展示节点
+  var seed = Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+  root.child("state").set({status:"spinning", prizeIndex:idx, winner:"", seed:seed, startAt:Date.now()});
 }
 
 function stopDraw() {
@@ -398,10 +409,11 @@ function stopDraw() {
   var idx = state.prizeIndex;
   var rem = remainingPool();
   if (!rem.length) { alert("候选人为空"); return; }
-  var w = rem[Math.floor(Math.random() * rem.length)];
+  var seed = state.seed || (Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10));
+  var w = pickFromSeed(seed, rem);
   var arr = winnersOf(idx).concat([w]);
   var upd = {};
-  upd["state"] = {status:"done", prizeIndex:idx, winner:w, seed:Date.now()};
+  upd["state"] = {status:"done", prizeIndex:idx, winner:w, seed:seed, startAt:state.startAt || 0};
   upd["winners/" + idx] = arr;
   root.update(upd);
 }
