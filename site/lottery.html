@@ -32,7 +32,10 @@
   .tname { font-weight:700; color:#fbbf24; font-size:14px; min-width:64px; flex-shrink:0; text-align:left; }
   .p { width:72px; height:34px; line-height:34px; text-align:center; background:#0f172a; border:1px solid #334155; border-radius:8px; font-size:14px; color:#cbd5e1; overflow:hidden; white-space:nowrap; }
   .p.lit { background:#f59e0b; color:#111; font-weight:700; box-shadow:0 0 10px rgba(245,158,11,.7); }
-  .p.won { background:#0b1220; color:#475569; text-decoration:line-through; border-color:#1e293b; }
+  .p.won { background:#22c55e; color:#111; text-decoration:line-through; border-color:#15803d; }
+  .p.won.lastwin { box-shadow:0 0 12px rgba(245,158,11,.95); border-color:#f59e0b; }
+  .big.pulse { animation:pulse .18s ease-out 1; }
+  @keyframes pulse { 0%{opacity:.2} 100%{opacity:1} }
   .history { display:flex; flex-direction:column; gap:8px; }
   .hrow { display:flex; justify-content:space-between; align-items:center; background:#334155; border-radius:8px; padding:8px 12px; font-size:14px; }
   .hrow b { color:#fbbf24; }
@@ -149,6 +152,7 @@ var participants = [], prizes = [], rules = "", winners = {};
 var spinTimer = null;
 var prevStatus = "";
 var revealing = false;
+var lastWinner = "";
 
 function init() {
   if (firebaseConfig.apiKey.indexOf("PASTE") >= 0) {
@@ -184,6 +188,7 @@ function listenAll() {
     prevStatus = state.status;
     if (state.status === "done") {
       stopSpin();
+      if (state.winner) lastWinner = state.winner; // 记住上一位中奖者, 持续高亮
       if (old === "spinning") playReveal(state.winner);
       else renderStage();
       return;
@@ -252,8 +257,10 @@ function renderGrid() {
     tl.textContent = team;
     row.appendChild(tl);
     members.forEach(function(p){
+      var isWon = allWinners().indexOf(p.name) >= 0;
+      var isLast = (p.name === lastWinner);
       var d = document.createElement("div");
-      d.className = "p" + (allWinners().indexOf(p.name) >= 0 ? " won" : "");
+      d.className = "p" + (isWon ? " won" : "") + (isLast ? " lastwin" : "");
       d.id = "p_" + p.name;
       d.textContent = p.name;
       row.appendChild(d);
@@ -270,8 +277,10 @@ function renderGrid() {
     tl2.textContent = "名誉抽奖位";
     row2.appendChild(tl2);
     others.forEach(function(p){
+      var isWon = allWinners().indexOf(p.name) >= 0;
+      var isLast = (p.name === lastWinner);
       var d = document.createElement("div");
-      d.className = "p" + (allWinners().indexOf(p.name) >= 0 ? " won" : "");
+      d.className = "p" + (isWon ? " won" : "") + (isLast ? " lastwin" : "");
       d.id = "p_" + p.name;
       d.textContent = p.name;
       row2.appendChild(d);
@@ -392,8 +401,10 @@ function playReveal(winner) {
   function step() {
     var n = names[idx];
     big.textContent = n;
-    // 只在滚动过程闪烁, 最后静止
-    big.className = (idx < names.length - 1) ? "big spin" : "big";
+    // 每次切换名字时同步闪烁一次(脉冲), 频率与名字切换一致
+    big.className = "big";
+    void big.offsetWidth; // 强制重排重启动画
+    big.className = (idx < names.length - 1) ? "big pulse" : "big";
     tag.className = "status spin"; tag.textContent = "揭晓中...";
     var cell = document.getElementById("p_" + n);
     if (cell) {
