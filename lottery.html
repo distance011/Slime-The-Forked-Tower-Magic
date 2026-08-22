@@ -218,7 +218,7 @@ function findP(name) {
 }
 
 function normTeam(t) {
-  return String(t || "").replace(/功能队/g, "").replace(/（D队）/g, "").replace(/（E队）/g, "").replace(/（F队）/g, "").replace(/功能位/g, "").trim();
+  return String(t || "").replace(/功能队/g, "").replace(/（D队）/g, "").replace(/（E队）/g, "").replace(/（F队）/g, "").replace(/功能位/g, "").replace(/（）/g, "").replace(/\(\)/g, "").trim();
 }
 
 function renderGrid() {
