@@ -336,16 +336,16 @@ function mulberry32(a) {
 
 function startSpin() {
   stopSpin();
-  // 无种子时兜底用当前时间
   var seed = state.seed || (Date.now().toString(36));
   var big = document.getElementById("big");
   big.className = "big spin";
   var rng = mulberry32(hashStr(seed));
-  var delay = 60, frame = 0;
-  spinTimer = setInterval(function(){
+  var delay = 55;
+  function tick() {
+    if (state.status !== "spinning") { stopSpin(); return; }
     var pool = remainingPool();
     if (!pool.length) { stopSpin(); return; }
-    // 用种子驱动确定性序列: 所有客户端看到完全一致的滚动
+    // 种子驱动的确定性序列: 所有客户端看到一致的滚动
     var n = pool[Math.floor(rng() * pool.length)];
     big.textContent = n;
     var grid = document.getElementById("pgrid");
@@ -353,12 +353,14 @@ function startSpin() {
     for (var i=0;i<els.length;i++) els[i].classList.remove("lit");
     var cell = document.getElementById("p_" + n);
     if (cell) cell.classList.add("lit");
-    frame++;
-    if (delay < 260) delay = 60 + frame * 3; // 轻微减速增加氛围, 但仍由种子驱动
-  }, delay);
+    // 渐变减速: 55ms 逐渐到 300ms, 最后慢速停
+    if (delay < 300) delay = Math.min(300, delay + 7);
+    spinTimer = setTimeout(tick, delay);
+  }
+  tick();
 }
 function stopSpin() {
-  if (spinTimer) { clearInterval(spinTimer); spinTimer = null; }
+  if (spinTimer) { clearTimeout(spinTimer); spinTimer = null; }
 }
 
 // ---------- 主持人控制 ----------
