@@ -28,9 +28,12 @@
   .status.spin { background:#f59e0b; color:#111; animation:blink .6s infinite; }
   .status.done { background:#22c55e; color:#111; }
   .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:8px; }
+  .teamhdr { grid-column:1/-1; background:#334155; color:#fbbf24; font-weight:700; border-radius:8px; padding:6px 10px; font-size:13px; margin-top:6px; }
   .p { background:#1e293b; border:1px solid #334155; border-radius:8px; padding:6px 8px; font-size:13px; text-align:center; color:#cbd5e1; }
+  .p .t { display:block; font-size:10px; color:#64748b; }
   .p.lit { background:#f59e0b; color:#111; font-weight:700; box-shadow:0 0 10px rgba(245,158,11,.7); }
   .p.won { background:#0b1220; color:#475569; text-decoration:line-through; border-color:#1e293b; }
+  .p.won .t { color:#334155; }
   .history { display:flex; flex-direction:column; gap:8px; }
   .hrow { display:flex; justify-content:space-between; align-items:center; background:#334155; border-radius:8px; padding:8px 12px; font-size:14px; }
   .hrow b { color:#fbbf24; }
@@ -120,15 +123,14 @@ var firebaseConfig = {
 // =================================================
 
 // 默认参与者(48人) - 页面自动载入到 Firebase
+var TEAM_ORDER = ["A队","B队功能队","C队","1队（D队）","2队（E队）","3队（F队） 功能队"];
 var DEFAULT_PARTICIPANTS = [
-"sdx","演员新之助","pejoy","冰糖萝卜","mfsnll","比奇堡大河狸",
-"汵","aesfdd","立川狮巧","妃麗斯蒂娜","安兹乌尔恭","终魔神",
-"栗栗狐","Ruach","干物舰北宅","超级高手","雪乃奈绪","羡鱼",
-"小刺猬","风牙","路边一条","权志龙","nxdd","花落冷清",
-"Aston","山風为嵐","虎视喵喵","沉默的鱼","狗狗不吃骨头","苏啾啾",
-"Asbel","德鲁海墨","新城乔子","冰·","瓦洛克","槟寿司",
-"钢琴师","荷天岚","冬雲","闲愁锁清秋","Anddbb","熾羽幻翼",
-"浅野千夜","配角","佐佐木咲","琉玥丶","致远","相马堇"
+{name:"sdx",qq:"1023046327",team:"A队"},{name:"冰糖萝卜",qq:"810755658",team:"A队"},{name:"汵",qq:"979058672",team:"A队"},{name:"妃麗斯蒂娜",qq:"231643857",team:"A队"},{name:"栗栗狐",qq:"348770241",team:"A队"},{name:"超级高手",qq:"343116025",team:"A队"},{name:"小刺猬",qq:"506919903",team:"A队"},{name:"权志龙",qq:"2544039914",team:"A队"},
+{name:"演员新之助",qq:"976541972",team:"B队功能队"},{name:"mfsnll",qq:"330752440",team:"B队功能队"},{name:"aesfdd",qq:"1097786043",team:"B队功能队"},{name:"安兹乌尔恭",qq:"598964663",team:"B队功能队"},{name:"Ruach",qq:"13812210",team:"B队功能队"},{name:"雪乃奈绪",qq:"632665026",team:"B队功能队"},{name:"风牙",qq:"844548238",team:"B队功能队"},{name:"nxdd",qq:"451020349",team:"B队功能队"},
+{name:"pejoy",qq:"625502157",team:"C队"},{name:"比奇堡大河狸",qq:"782493783",team:"C队"},{name:"立川狮巧",qq:"976156258",team:"C队"},{name:"终魔神",qq:"370192747",team:"C队"},{name:"干物舰北宅",qq:"1105596015",team:"C队"},{name:"羡鱼",qq:"837251385",team:"C队"},{name:"路边一条",qq:"1273286057",team:"C队"},{name:"花落冷清",qq:"305395996",team:"C队"},
+{name:"Aston",qq:"790457308",team:"1队（D队）"},{name:"沉默的鱼",qq:"279653329",team:"1队（D队）"},{name:"Asbel",qq:"1500994536",team:"1队（D队）"},{name:"冰·",qq:"445067703",team:"1队（D队）"},{name:"钢琴师",qq:"1176607500",team:"1队（D队）"},{name:"闲愁锁清秋",qq:"1214791537",team:"1队（D队）"},{name:"浅野千夜",qq:"474497136",team:"1队（D队）"},{name:"琉玥丶",qq:"841685825",team:"1队（D队）"},
+{name:"山風为嵐",qq:"756065284",team:"2队（E队）"},{name:"狗狗不吃骨头",qq:"1436790291",team:"2队（E队）"},{name:"德鲁海墨",qq:"543490156",team:"2队（E队）"},{name:"瓦洛克",qq:"56791996",team:"2队（E队）"},{name:"荷天岚",qq:"2273815914",team:"2队（E队）"},{name:"Anddbb",qq:"745136017",team:"2队（E队）"},{name:"配角",qq:"1345079875",team:"2队（E队）"},{name:"致远",qq:"2916423960",team:"2队（E队）"},
+{name:"虎视喵喵",qq:"408741553",team:"3队（F队） 功能队"},{name:"苏啾啾",qq:"738280531",team:"3队（F队） 功能队"},{name:"新城乔子",qq:"200898196",team:"3队（F队） 功能队"},{name:"槟寿司",qq:"3551489254",team:"3队（F队） 功能队"},{name:"冬雲",qq:"529578875",team:"3队（F队） 功能队"},{name:"熾羽幻翼",qq:"376206545",team:"3队（F队） 功能队"},{name:"佐佐木咲",qq:"1300024789",team:"3队（F队） 功能队"},{name:"相马堇",qq:"2685677162",team:"3队（F队） 功能队"}
 ];
 var DEFAULT_PRIZES = ["演技教材·声援套装（白/紫/绿）*3","演技教材·声援套装（橙/粉/靛）*3","128时装*3","力之首饰整套/魔之首饰整套*1"];
 var DEFAULT_RULES = "每人限中奖1次，中过的自动从候选名单剔除，动画不会再经过中奖者。";
@@ -187,16 +189,29 @@ function renderPrizes() {
   document.getElementById("curPrize").textContent = "当前奖品：" + (prizes[state.prizeIndex] || "-");
 }
 
+function findP(name) {
+  for (var i=0;i<participants.length;i++) if (participants[i].name === name) return participants[i];
+  return null;
+}
+
 function renderGrid() {
   var box = document.getElementById("pgrid");
   box.innerHTML = "";
   document.getElementById("pcount").textContent = participants.length;
-  participants.forEach(function(n){
-    var d = document.createElement("div");
-    d.className = "p" + (Object.values(winners).indexOf(n) >= 0 ? " won" : "");
-    d.id = "p_" + n;
-    d.textContent = n;
-    box.appendChild(d);
+  TEAM_ORDER.forEach(function(team){
+    var members = participants.filter(function(p){ return p.team === team; });
+    if (!members.length) return;
+    var h = document.createElement("div");
+    h.className = "teamhdr";
+    h.textContent = team;
+    box.appendChild(h);
+    members.forEach(function(p){
+      var d = document.createElement("div");
+      d.className = "p" + (Object.values(winners).indexOf(p.name) >= 0 ? " won" : "");
+      d.id = "p_" + p.name;
+      d.innerHTML = esc(p.name) + '<span class="t">' + esc(p.qq) + "</span>";
+      box.appendChild(d);
+    });
   });
   if (!participants.length) box.textContent = "暂无参与者";
 }
@@ -209,7 +224,8 @@ function renderHistory() {
   keys.forEach(function(k){
     var row = document.createElement("div");
     row.className = "hrow";
-    row.innerHTML = "<span><b>第" + (+k+1) + "项</b> · " + esc(prizes[+k] || ("奖品"+ (+k+1))) + "</span><span>🏆 " + esc(winners[k]) + "</span>";
+    var wp = findP(winners[k]);
+    row.innerHTML = "<span><b>第" + (+k+1) + "项</b> · " + esc(prizes[+k] || ("奖品"+ (+k+1))) + "</span><span>🏆 " + esc(winners[k]) + (wp && wp.qq ? "（QQ " + esc(wp.qq) + "）" : "") + "</span>";
     box.appendChild(row);
   });
 }
@@ -224,7 +240,8 @@ function renderStage() {
   } else if (state.status === "done") {
     big.className = "big"; big.textContent = state.winner || "?";
     tag.className = "status done"; tag.textContent = "已定";
-    sub.textContent = "🎉 恭喜 " + (state.winner || "") + " 获得：" + (prizes[state.prizeIndex] || "本项奖品");
+    var wp = findP(state.winner);
+    sub.textContent = "🎉 恭喜 " + (state.winner || "") + (wp && wp.qq ? "（QQ " + esc(wp.qq) + "）" : "") + " 获得：" + (prizes[state.prizeIndex] || "本项奖品");
   } else {
     big.className = "big"; big.textContent = "等待开始";
     tag.className = "status idle"; tag.textContent = "未开始";
@@ -270,7 +287,7 @@ function saveConfig() {
 
 function remainingPool() {
   var w = Object.values(winners);
-  return participants.filter(function(n){ return w.indexOf(n) < 0; });
+  return participants.filter(function(p){ return w.indexOf(p.name) < 0; }).map(function(p){ return p.name; });
 }
 
 function startDraw() {
