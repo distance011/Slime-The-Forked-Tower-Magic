@@ -253,14 +253,14 @@ function renderGrid() {
     });
     box.appendChild(row);
   });
-  // 未分队/荣誉人员: 显示在"自由位"行
+  // 未分队/荣誉人员: 显示在"名誉抽奖位"行
   var others = participants.filter(function(p){ return shown.indexOf(p) < 0; });
   if (others.length) {
     var row2 = document.createElement("div");
     row2.className = "trow";
     var tl2 = document.createElement("span");
     tl2.className = "tname";
-    tl2.textContent = "自由位";
+    tl2.textContent = "名誉抽奖位";
     row2.appendChild(tl2);
     others.forEach(function(p){
       var d = document.createElement("div");
