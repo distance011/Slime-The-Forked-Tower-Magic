@@ -30,7 +30,7 @@
   .grid { display:flex; flex-direction:column; gap:6px; }
   .trow { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:6px 10px; background:#1e293b; border-radius:10px; border:1px solid #334155; margin-bottom:6px; }
   .tname { font-weight:700; color:#fbbf24; font-size:14px; min-width:64px; flex-shrink:0; text-align:left; }
-  .p { width:76px; height:32px; line-height:30px; text-align:center; background:#0f172a; border:1px solid #334155; border-radius:8px; font-size:13px; color:#cbd5e1; overflow:hidden; white-space:nowrap; }
+  .p { width:88px; min-height:34px; line-height:34px; text-align:center; background:#0f172a; border:1px solid #334155; border-radius:8px; font-size:14px; color:#cbd5e1; }
   .p.lit { background:#f59e0b; color:#111; font-weight:700; box-shadow:0 0 10px rgba(245,158,11,.7); }
   .p.won { background:#0b1220; color:#475569; text-decoration:line-through; border-color:#1e293b; }
   .history { display:flex; flex-direction:column; gap:8px; }
@@ -193,12 +193,16 @@ function findP(name) {
   return null;
 }
 
+function normTeam(t) {
+  return String(t || "").replace(/功能队/g, "").replace(/（D队）/g, "").replace(/（E队）/g, "").replace(/（F队）/g, "").replace(/功能位/g, "").trim();
+}
+
 function renderGrid() {
   var box = document.getElementById("pgrid");
   box.innerHTML = "";
   document.getElementById("pcount").textContent = participants.length;
   TEAM_ORDER.forEach(function(team){
-    var members = participants.filter(function(p){ return p.team === team; });
+    var members = participants.filter(function(p){ return normTeam(p.team) === team; });
     if (!members.length) return;
     var row = document.createElement("div");
     row.className = "trow";
