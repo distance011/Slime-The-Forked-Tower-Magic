@@ -33,7 +33,7 @@
   .p { width:72px; height:34px; line-height:34px; text-align:center; background:#0f172a; border:1px solid #334155; border-radius:8px; font-size:14px; color:#cbd5e1; overflow:hidden; white-space:nowrap; }
   .p.lit { background:#f59e0b; color:#111; font-weight:700; box-shadow:0 0 10px rgba(245,158,11,.7); }
   .p.won { background:#22c55e; color:#111; text-decoration:line-through; border-color:#15803d; }
-  .p.won.lastwin { box-shadow:0 0 12px rgba(245,158,11,.95); border-color:#f59e0b; }
+  .p.lastwin { background:#facc15; color:#111; font-weight:700; border-color:#eab308; box-shadow:0 0 12px rgba(250,204,21,.9); }
   .big.pulse { animation:pulse .18s ease-out 1; }
   @keyframes pulse { 0%{opacity:.2} 100%{opacity:1} }
   .history { display:flex; flex-direction:column; gap:8px; }
@@ -246,7 +246,9 @@ function pClass(name) {
   if (revealing && state.status === "done" && name === state.winner) return "p";
   var isWon = allWinners().indexOf(name) >= 0;
   var isLast = (name === lastWinner);
-  return "p" + (isWon ? " won" : "") + (isLast ? " lastwin" : "");
+  // 最新中奖者: 黄色高亮(不用绿色), 下次点抽奖后才变绿色
+  if (isLast) return "p lastwin";
+  return "p" + (isWon ? " won" : "");
 }
 
 function renderGrid() {
@@ -516,6 +518,7 @@ function startDraw() {
   var rem = remainingPool();
   if (!rem.length) { alert("候选人为空"); return; }
   // 管理员生成并上传随机种子(公开可见), 客户端以此种子播放同步滚动动画
+  lastWinner = ""; // 上一轮的黄色中奖者, 本次开始时变绿
   var seed = Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
   var startP = performance.now();
   root.child("state").set({status:"spinning", prizeIndex:idx, winner:"", seed:seed,
@@ -541,11 +544,13 @@ function stopDraw() {
 
 function clearWinners() {
   if (!confirm("确定清除所有中奖记录？(保留奖品/规则/参与者，可重新抽)")) return;
+  lastWinner = "";
   root.update({winners: {}, state: {status:"idle", prizeIndex:0, winner:"", seed:0}});
 }
 
 function resetAll() {
   if (!confirm("确定清空所有抽奖记录并重置？")) return;
+  lastWinner = "";
   root.update({winners: {}, state: {status:"idle", prizeIndex:0, winner:"", seed:0}});
 }
 
